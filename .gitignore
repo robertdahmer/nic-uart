@@ -1,0 +1,4 @@
+nicuart
+tests/test_encoder
+sim/out/
+__pycache__/

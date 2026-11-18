@@ -1,0 +1,52 @@
+* NIC-UART dongle v3: transformador elevador 1:2 + detector de meia onda
+*
+* Modelo do lado do PC (dentro da placa de rede):
+*   - driver 10BASE-T: fonte diferencial com Voc = 2*VLINE e Rs = 100 ohm,
+*     portadora quadrada de 10 MHz modulada pelo envelope dos quadros
+*   - magnetics: transformador 1:1, 350 uH (mínimo exigido pela 802.3), k=0.999
+* Lado da linha (pinos 1/2 do RJ45):
+*   - RTERM: 100 ohm do plugue de loopback (RX da própria placa)
+*   - dongle: Rin -> T1 (1:2) -> D1 -> C1 (reservatório) -> R2/C2 (filtro anti-NLP) -> saída
+*   - RLOAD: entrada do receptor RS232 (3..7 kohm, aqui 5 kohm)
+* Pino 2 do RJ45 = GND do dongle = GND do console (pinos 4/5).
+*
+* Placeholders (VOC, ENV_PWL, NLP_PWL, TSTOP, OUT, PARAMS) são preenchidos por run_sim.py
+
+.param VOC={VOC}
+* valores do dongle (run_sim.py --set NOME=VALOR sobrescreve)
+.param RIN=47 C1=1n RBL=4.7k R2=1k C2=1n RLOAD=5k LT=10u
+{PARAMS}
+VENV env 0 PWL({ENV_PWL})
+VNLP nlp 0 PWL({NLP_PWL})
+* Manchester aproximado como 10 MHz quadrado (tanh deixa as bordas ~3 ns)
+BSRC drv 0 V = VOC*(V(env)*tanh(8*sin(6.283185307e7*time)) + V(nlp))
+RS   drv pri 100
+LPRI pri 0 350u
+LSEC lp ln 350u
+K1   LPRI LSEC 0.999
+RREF ln 0 1m
+
+RTERM lp ln 100
+
+* --- dongle ---
+* toroide de ferrite (ex.: FT37-43): 5 espiras no primário, 10 no secundário
+RIN  lp t1 {RIN}
+LT1  t1 ln {LT}
+LT2  s ln {4*LT}
+K2   LT1 LT2 0.98
+D1   s a BAT54
+C1   a ln {C1}
+RBL  a ln {RBL}
+R2   a out {R2}
+C2   out ln {C2}
+RLOAD out ln {RLOAD}
+
+.model BAT54 D(IS=2e-7 N=1.0 RS=1.0 CJO=10p M=0.33 VJ=0.35 TT=5n BV=30 IBV=1e-6)
+
+.options interp reltol=1e-3 method=gear
+.control
+tran 100n {TSTOP} 0 5n uic
+wrdata {OUT} v(out) v(env) v(lp)
+quit
+.endc
+.end

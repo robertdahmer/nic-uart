@@ -1,0 +1,43 @@
+* NIC-UART dongle v2: dobrador de tensão (Greinacher) + filtro
+*
+* Mesmo modelo de NIC/magnetics/loopback do dongle_halfwave.cir. A diferença
+* é o detector: C3 + D1 grampeiam o semiciclo negativo e D2 carrega C1 com
+* ~2x o pico, compensando a queda do Schottky e o divisor R2/RLOAD.
+*
+* Placeholders (VOC, ENV_PWL, NLP_PWL, TSTOP, OUT, PARAMS) são preenchidos por run_sim.py
+
+.param VOC={VOC}
+* valores do dongle (run_sim.py --set NOME=VALOR sobrescreve)
+.param RIN=100 C1=470p RBL=4.7k R2=1k C2=1n RLOAD=5k
+{PARAMS}
+VENV env 0 PWL({ENV_PWL})
+VNLP nlp 0 PWL({NLP_PWL})
+BSRC drv 0 V = VOC*(V(env)*tanh(8*sin(6.283185307e7*time)) + V(nlp))
+RS   drv pri 100
+LPRI pri 0 350u
+LSEC lp ln 350u
+K1   LPRI LSEC 0.999
+RREF ln 0 1m
+
+RTERM lp ln 100
+
+* --- dongle ---
+RIN  lp d_in {RIN}
+C3   d_in x 10n
+D1   ln x BAT54
+D2   x a BAT54
+C1   a ln {C1}
+RBL  a ln {RBL}
+R2   a out {R2}
+C2   out ln {C2}
+RLOAD out ln {RLOAD}
+
+.model BAT54 D(IS=2e-7 N=1.0 RS=1.0 CJO=10p M=0.33 VJ=0.35 TT=5n BV=30 IBV=1e-6)
+
+.options interp reltol=1e-3 method=gear
+.control
+tran 100n {TSTOP} 0 5n uic
+wrdata {OUT} v(out) v(env) v(lp)
+quit
+.endc
+.end
